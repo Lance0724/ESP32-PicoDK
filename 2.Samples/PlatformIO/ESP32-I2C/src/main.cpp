@@ -12,10 +12,11 @@
 #define LED_PIN 27
 bool blinkState = false;
 
-byte fetch_pressure(unsigned int *p_Pressure, unsigned int *p_T_dat); // convert value to byte data type
+byte fetch_pressure(int16_t dT_raw *p_P_dat, int16_t dT_raw *p_T_dat); // convert value to byte data type
 
 #define TRUE 1
 #define FALSE 0
+#define PSI_to_Pa (6894.757f)
 
 void setup()
 {
@@ -44,6 +45,10 @@ void loop()
     byte _status;
     unsigned int P_dat;
     unsigned int T_dat;
+
+    int16_t dp_raw;
+    int16_t dT_raw;
+
     double P;
     double PR;
     double TR;
@@ -51,7 +56,7 @@ void loop()
     double VV;
     while (1)
     {
-        _status = fetch_pressure(&P_dat, &T_dat);
+        _status = fetch_pressure(&dp_raw, &dT_raw);
 
         switch (_status)
         {
@@ -80,22 +85,29 @@ void loop()
         // TR = TR - 50;
 
         Serial.print("raw Pressure:");
-        Serial.println(P_dat);
-        // Serial.print("pressure psi:");
-        // Serial.println(P, 10);
+        Serial.println(dp_raw);
+
+        float press_raw = PSI_to_Pa - (dp_raw - 0.1 * 16383) * PSI_to_Pa/(0.4f * 16383);
+
+        Serial.print("pressure psi:");
+        Serial.println(press_raw);
         // Serial.print("Draft:");
         // Serial.println(P * 2.3067);
 
         Serial.print(" ");
         Serial.print("raw Temp:");
-        Serial.println(T_dat);
-        // Serial.print("tempC:");
-        // Serial.println(TR);
+        Serial.println(dT_raw);
+
+        float temp = dT_raw * 200.0f / 2047 - 50;
+        Serial.print("tempC:");
+        Serial.println(temp);
         // Serial.print("tempF:");
         // Serial.println((TR * 1.8) + 32);
         Serial.println(" ");
 
-        delay(3000);
+        float currentSpeed = sqrt(press_raw * 2 / 1.225) * 3.6;
+
+        delay(2000);
     }
 
     // blink LED to indicate activity
@@ -103,11 +115,11 @@ void loop()
     digitalWrite(LED_PIN, blinkState);
 }
 
-byte fetch_pressure(unsigned int *p_P_dat, unsigned int *p_T_dat)
+byte fetch_pressure(int16_t dT_raw *p_P_dat, int16_t dT_raw *p_T_dat)
 {
     byte address, Press_H, Press_L, _status;
-    unsigned int P_dat;
-    unsigned int T_dat;
+    int16_t dT_raw P_dat;
+    int16_t dT_raw T_dat;
 
     address = 0x28;
     Wire.beginTransmission(address);
